@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "dynamicfluidtanks:lock/tank_controller" },
+    "facing=south": { "model": "dynamicfluidtanks:lock/tank_controller", "y": 180 },
+    "facing=west": { "model": "dynamicfluidtanks:lock/tank_controller", "y": 270 },
+    "facing=east": { "model": "dynamicfluidtanks:lock/tank_controller", "y": 90 }
+  }
+}

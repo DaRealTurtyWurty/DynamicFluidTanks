@@ -1,0 +1,7 @@
+{
+  "block.dynamicfluidtanks.tank_casing": "Tank Casing",
+  "block.dynamicfluidtanks.tank_valve": "Tank Valve",
+  "block.dynamicfluidtanks.tank_glass": "Tank Glass",
+  "block.dynamicfluidtanks.tank_controller": "Tank Controller",
+  "itemGroup.dynamicfluidtanks": "Dynamic Fluid Tanks"
+}

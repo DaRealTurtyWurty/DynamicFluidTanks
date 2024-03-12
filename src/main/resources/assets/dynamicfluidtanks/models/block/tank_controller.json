@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "dynamicfluidtanks:blocks/tank_controller_front",
+    "side": "dynamicfluidtanks:blocks/tank_controller_side",
+    "top": "dynamicfluidtanks:blocks/tank_controller_top"
+  }
+}

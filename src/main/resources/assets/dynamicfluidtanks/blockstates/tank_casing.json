@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "dynamicfluidtanks:block/tank_casing" }
+  }
+}
