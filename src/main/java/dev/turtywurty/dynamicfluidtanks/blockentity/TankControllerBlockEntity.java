@@ -95,7 +95,7 @@ public class TankControllerBlockEntity extends BlockEntity implements TickableBl
             if(stack.isEmpty())
                 return;
 
-            if(this.tank.getFluidAmount() >= this.tank.getCapacity())
+            if(this.tank.getFluidAmount() >= this.tank.getLongCapacity())
                 return;
 
             LazyOptional<IFluidHandlerItem> fluidHandler = stack.getCapability(ForgeCapabilities.FLUID_HANDLER_ITEM);
@@ -103,7 +103,7 @@ public class TankControllerBlockEntity extends BlockEntity implements TickableBl
                 if(!this.tank.getFluid().isFluidEqual(iFluidHandlerItem.getFluidInTank(0)) && !this.tank.isEmpty())
                     return;
 
-                int amountToDrain = this.tank.getCapacity() - this.tank.getFluidAmount();
+                int amountToDrain = this.tank.getLongCapacity() - this.tank.getFluidAmount();
                 int amount = iFluidHandlerItem.drain(amountToDrain, IFluidHandler.FluidAction.SIMULATE).getAmount();
                 if(amount > 0) {
                     this.tank.fill(iFluidHandlerItem.drain(amountToDrain, IFluidHandler.FluidAction.EXECUTE), IFluidHandler.FluidAction.EXECUTE);
@@ -184,8 +184,8 @@ public class TankControllerBlockEntity extends BlockEntity implements TickableBl
 
     public void onMultiblockComplete() {
         long volume = this.multiblockData.getVolume();
-        this.tank.setCapacity(volume * 1_000L); // volume * 1000 (b -> mb)
-        System.out.println("Multiblock complete! Volume: " + volume + "b, Capacity: " + this.tank.getCapacity() + "mb");
+        this.tank.setLongCapacity(volume * 1_000L); // volume * 1000 (b -> mb)
+        System.out.println("Multiblock complete! Volume: " + volume + "b, Capacity: " + this.tank.getLongCapacity() + "mb");
 
         if(this.level == null)
             return;
@@ -199,7 +199,7 @@ public class TankControllerBlockEntity extends BlockEntity implements TickableBl
     }
 
     public void onMultiblockInvalid() {
-        this.tank.setCapacity(0L);
+        this.tank.setLongCapacity(0L);
     }
 
     public LazyOptional<IItemHandler> getInventory() {

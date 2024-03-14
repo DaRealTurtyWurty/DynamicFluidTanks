@@ -1,32 +1,29 @@
 package dev.turtywurty.dynamicfluidtanks.blockentity;
 
+import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraftforge.common.util.INBTSerializable;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.IFluidTank;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-
+@Setter
+@Getter
 public class LongFluidTank implements IFluidTank, IFluidHandler, INBTSerializable<CompoundTag> {
-    private final List<FluidStack> fluidStacks = new ArrayList<>();
-    @Setter
-    private long capacity;
+    private long longCapacity, longAmount;
+    private FluidStack fluidData;
 
-    public LongFluidTank(long capacity) {
-        this.capacity = capacity;
+    public LongFluidTank(long longCapacity) {
+        this.longCapacity = longCapacity;
     }
 
     public LongFluidTank() {}
 
     @Override
     public @NotNull FluidStack getFluid() {
-        return this.fluidStacks.isEmpty() ? FluidStack.EMPTY : this.fluidStacks.get(0);
+        return this.longAmount <= 0 ? FluidStack.EMPTY : new FluidStack(fluidData, (int) this.longAmount);
     }
 
     @Override
@@ -36,7 +33,7 @@ public class LongFluidTank implements IFluidTank, IFluidHandler, INBTSerializabl
 
     @Override
     public int getCapacity() {
-        return (int) this.capacity;
+        return (int) this.longCapacity;
     }
 
     @Override
@@ -46,17 +43,34 @@ public class LongFluidTank implements IFluidTank, IFluidHandler, INBTSerializabl
 
     @Override
     public int getTanks() {
-        return this.fluidStacks.size();
+        // Calculate the amount of Integer.MAX_VALUE's that can fit into the longCapacity
+        return (int) (longCapacity / (float) Integer.MAX_VALUE);
     }
 
     @Override
     public @NotNull FluidStack getFluidInTank(int tank) {
-        return this.fluidStacks.get(tank);
+        if (tank < 0 || tank >= getTanks()) {
+            return FluidStack.EMPTY;
+        }
+
+        if(tank == getTanks()) {
+            return new FluidStack(fluidData, getLastStackRemainder());
+        }
+
+        return new FluidStack(fluidData, Integer.MAX_VALUE);
     }
 
     @Override
     public int getTankCapacity(int tank) {
-        return getCapacity();
+        if (tank < 0 || tank >= getTanks()) {
+            return 0;
+        }
+
+        if(tank == getTanks()) {
+            return getLastStackRemainder();
+        }
+
+        return Integer.MAX_VALUE;
     }
 
     @Override
@@ -66,93 +80,18 @@ public class LongFluidTank implements IFluidTank, IFluidHandler, INBTSerializabl
 
     @Override
     public int fill(FluidStack resource, FluidAction action) {
-        if (resource.isEmpty() || !isFluidValid(resource)) {
-            return 0;
-        }
 
-        long totalFilled = 0;
-
-        if (action.simulate()) {
-            for (FluidStack fluid : fluidStacks) {
-                if (fluid.isFluidEqual(resource)) {
-                    totalFilled += Math.min(getCapacityLong() - fluid.getAmount(), resource.getAmount());
-                }
-            }
-            return (int) totalFilled;
-        }
-
-        for (FluidStack fluid : fluidStacks) {
-            if (fluid.isFluidEqual(resource)) {
-                long filled = Math.min(getCapacityLong() - fluid.getAmount(), resource.getAmount());
-                fluid.grow((int) filled);
-                totalFilled += filled;
-                resource.shrink((int) filled);
-                if (resource.isEmpty()) {
-                    break;
-                }
-            }
-        }
-
-        if (!resource.isEmpty()) {
-            FluidStack newFluid = new FluidStack(resource, (int) Math.min(getCapacityLong(), resource.getAmount()));
-            fluidStacks.add(newFluid);
-            totalFilled += newFluid.getAmount();
-        }
-
-        if (totalFilled > 0) {
-            onContentsChanged();
-        }
-
-        return (int) totalFilled;
     }
 
     @Override
     public @NotNull FluidStack drain(int maxDrain, FluidAction action) {
-        long totalDrained = 0;
-        FluidStack drained = FluidStack.EMPTY;
 
-        if (action.simulate()) {
-            for (FluidStack fluid : fluidStacks) {
-                totalDrained += Math.min(fluid.getAmount(), maxDrain);
-                if (totalDrained >= maxDrain) {
-                    break;
-                }
-            }
-            return new FluidStack(drained, (int) totalDrained);
-        }
-
-        Iterator<FluidStack> iterator = fluidStacks.iterator();
-        while (iterator.hasNext()) {
-            FluidStack fluid = iterator.next();
-            long drainable = Math.min(fluid.getAmount(), maxDrain - totalDrained);
-            if (drainable > 0) {
-                fluid.shrink((int) drainable);
-                totalDrained += drainable;
-                if (fluid.isEmpty()) {
-                    iterator.remove();
-                }
-                if (totalDrained >= maxDrain) {
-                    break;
-                }
-            }
-        }
-
-        if (totalDrained > 0) {
-            onContentsChanged();
-        }
-
-        return new FluidStack(drained, (int) totalDrained);
     }
 
 
     @Override
     public @NotNull FluidStack drain(FluidStack resource, FluidAction action) {
-        FluidStack fluid = getFluid();
-        if (resource.isEmpty() || !resource.isFluidEqual(fluid)) {
-            return FluidStack.EMPTY;
-        }
 
-        return drain(resource.getAmount(), action);
     }
 
     protected void onContentsChanged() {
@@ -160,43 +99,26 @@ public class LongFluidTank implements IFluidTank, IFluidHandler, INBTSerializabl
     }
 
     public boolean isEmpty() {
-        return fluidStacks.isEmpty();
+        return longAmount <= 0;
     }
 
     @Override
     public CompoundTag serializeNBT() {
         var tag = new CompoundTag();
 
-        var fluidStacksTag = new ListTag();
-        for (FluidStack fluid : fluidStacks) {
-            fluidStacksTag.add(fluid.writeToNBT(new CompoundTag()));
-        }
-
-        tag.put("FluidStacks", fluidStacksTag);
-        tag.putLong("Capacity", capacity);
+        tag.putLong("Capacity", longCapacity);
+        tag.putLong("Amount", longAmount);
 
         return tag;
     }
 
     @Override
     public void deserializeNBT(CompoundTag nbt) {
-        var fluidStacksTag = nbt.getList("FluidStacks", 10);
-        for (int i = 0; i < fluidStacksTag.size(); i++) {
-            fluidStacks.add(FluidStack.loadFluidStackFromNBT(fluidStacksTag.getCompound(i)));
-        }
-
-        capacity = nbt.getLong("Capacity");
+        longCapacity = nbt.getLong("Capacity");
+        longAmount = nbt.getLong("Amount");
     }
 
-    public long getCapacityLong() {
-        return capacity;
-    }
-
-    public long getFluidAmountLong() {
-        long amount = 0;
-        for (FluidStack fluid : fluidStacks) {
-            amount += fluid.getAmount();
-        }
-        return amount;
+    private int getLastStackRemainder() {
+        return (int) (longCapacity % Integer.MAX_VALUE);
     }
 }
