@@ -83,7 +83,9 @@ public class TankControllerBlockEntity extends BlockEntity implements TickableBl
             long start = System.nanoTime();
             this.multiblockData.construct(this.level);
             long end = System.nanoTime();
-            DynamicFluidTanks.LOGGER.info("Multiblock construction took: " + (end - start) + "ns");
+
+            long timeTaken = end - start;
+            DynamicFluidTanks.LOGGER.info("Multiblock construction took: " + (timeTaken > 1_000_000 ? timeTaken / 1_000_000 + "ms" : timeTaken + "ns"));
         }
 
         if(this.ticks++ == Integer.MAX_VALUE) {
@@ -103,7 +105,7 @@ public class TankControllerBlockEntity extends BlockEntity implements TickableBl
                 if(!this.tank.getFluid().isFluidEqual(iFluidHandlerItem.getFluidInTank(0)) && !this.tank.isEmpty())
                     return;
 
-                int amountToDrain = this.tank.getLongCapacity() - this.tank.getFluidAmount();
+                int amountToDrain = (int) (this.tank.getLongCapacity() - this.tank.getFluidAmount());
                 int amount = iFluidHandlerItem.drain(amountToDrain, IFluidHandler.FluidAction.SIMULATE).getAmount();
                 if(amount > 0) {
                     this.tank.fill(iFluidHandlerItem.drain(amountToDrain, IFluidHandler.FluidAction.EXECUTE), IFluidHandler.FluidAction.EXECUTE);
@@ -196,10 +198,13 @@ public class TankControllerBlockEntity extends BlockEntity implements TickableBl
                 valve.setController(this.worldPosition);
             }
         }
+
+        sendUpdate();
     }
 
     public void onMultiblockInvalid() {
         this.tank.setLongCapacity(0L);
+        sendUpdate();
     }
 
     public LazyOptional<IItemHandler> getInventory() {

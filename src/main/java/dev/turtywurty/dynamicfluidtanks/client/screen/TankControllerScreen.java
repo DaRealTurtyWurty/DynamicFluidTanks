@@ -89,13 +89,13 @@ public class TankControllerScreen extends AbstractContainerScreen<TankController
             return;
 
         Component component = MutableComponent.create(tank.getFluid().getDisplayName().getContents())
-                .append(" (%s/%s mB)".formatted(tank.getFluidAmountLong(), tank.getCapacityLong()));
+                .append(" (%s/%s mB)".formatted(tank.getLongAmount(), tank.getLongCapacity()));
         pGuiGraphics.renderTooltip(this.font, component, pMouseX, pMouseY);
     }
 
     private static int getFluidHeight(LongFluidTank tank) {
-        long amount = tank.getFluidAmountLong();
-        long capacity = tank.getCapacityLong();
+        long amount = tank.getLongAmount();
+        long capacity = tank.getLongCapacity();
         double ratio = (double) amount / (double) capacity;
 
         return (int) (48 * ratio);

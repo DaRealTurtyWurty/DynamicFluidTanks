@@ -53,32 +53,37 @@ public class FluidTankBERenderer implements BlockEntityRenderer<TankControllerBl
     }
 
     private static void drawCuboid(VertexConsumer builder, PoseStack poseStack, BlockPos fromPos, Vector3f start, Vector3f end, TextureAtlasSprite sprite, int packedLight, int color) {
-        Vec3 relativeStart = Vec3.atLowerCornerWithOffset(fromPos, -start.x(), -start.y(), -start.z());
+        var relativeStart = Vec3.atLowerCornerWithOffset(fromPos, -start.x(), -start.y(), -start.z());
 
-        float endX = end.x() - start.x();
-        float endY = end.y() - start.y();
-        float endZ = end.z() - start.z();
+        float width = end.x() - start.x();
+        float height = end.y() - start.y();
+        float depth = end.z() - start.z();
+
+        float u0 = sprite.getU0() * width;
+        float v0 = sprite.getV0() * height;
+        float u1 = sprite.getU1() * width;
+        float v1 = sprite.getV1() * height;
 
         poseStack.pushPose();
         poseStack.translate(-relativeStart.x(), -relativeStart.y(), -relativeStart.z());
 
         // Draw the front face
-        drawQuad(builder, poseStack, 0, 0, 0, endX, endY, 0, sprite.getU0(), sprite.getV0(), sprite.getU1(), sprite.getV1(), packedLight, color);
+        drawQuad(builder, poseStack, 0, 0, 0, width, height, 0, u0, v0, u1, v1, packedLight, color);
 
         // Draw the back face
-        drawQuad(builder, poseStack, endX, 0, endZ, 0, endY, endZ, sprite.getU0(), sprite.getV0(), sprite.getU1(), sprite.getV1(), packedLight, color);
+        drawQuad(builder, poseStack, width, 0, depth, 0, height, depth, u0, v0, u1, v1, packedLight, color);
 
         // Draw the top face
-        drawQuad(builder, poseStack, 0, endY, 0, endX, endY, endZ, sprite.getU0(), sprite.getV0(), sprite.getU1(), sprite.getV1(), packedLight, color);
+        drawQuad(builder, poseStack, 0, height, 0, width, height, depth, u0, v0, u1, v1, packedLight, color);
 
         // Draw the bottom face
-        drawQuad(builder, poseStack, 0, 0, endZ, endX, 0, 0, sprite.getU0(), sprite.getV0(), sprite.getU1(), sprite.getV1(), packedLight, color);
+        drawQuad(builder, poseStack, 0, 0, depth, width, 0, 0, u0, v0, u1, v1, packedLight, color);
 
         // Draw the right face
-        drawQuadReversed(builder, poseStack, 0, 0, 0, 0, endY, endZ, sprite.getU0(), sprite.getV0(), sprite.getU1(), sprite.getV1(), packedLight, color);
+        drawQuadReversed(builder, poseStack, 0, 0, 0, 0, height, depth, u0, v0, u1, v1, packedLight, color);
 
         // Draw the left face
-        drawQuadReversed(builder, poseStack, endX, 0, endZ, endX, endY, 0, sprite.getU0(), sprite.getV0(), sprite.getU1(), sprite.getV1(), packedLight, color);
+        drawQuadReversed(builder, poseStack, width, 0, depth, width, height, 0, u0, v0, u1, v1, packedLight, color);
 
         poseStack.popPose();
     }
@@ -109,8 +114,8 @@ public class FluidTankBERenderer implements BlockEntityRenderer<TankControllerBl
         int tintColor = extensions.getTintColor(fluidStack);
         RenderType renderType = ItemBlockRenderTypes.getRenderLayer(fluidStack.getFluid().defaultFluidState());
 
-        long amount = fluidTank.getFluidAmountLong();
-        long capacity = fluidTank.getCapacityLong();
+        long amount = fluidTank.getLongAmount();
+        long capacity = fluidTank.getLongCapacity();
 
         VertexConsumer builder = pBuffer.getBuffer(renderType);
 

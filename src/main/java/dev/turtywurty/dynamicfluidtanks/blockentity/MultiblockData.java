@@ -19,9 +19,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.util.INBTSerializable;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.Stack;
+import java.util.*;
 
 @Getter
 public class MultiblockData implements INBTSerializable<CompoundTag> {
@@ -46,7 +44,7 @@ public class MultiblockData implements INBTSerializable<CompoundTag> {
 
     public void construct(@NotNull Level level) {
         if (this.isComplete) {
-            if (!validateMultiblock(level)) {
+            if (!validateMultiblock(level).isEmpty()) {
                 reset();
                 if (this.onInvalid != null) {
                     this.onInvalid.run();
@@ -90,39 +88,48 @@ public class MultiblockData implements INBTSerializable<CompoundTag> {
             }
         }
 
+        for (BlockPos position : this.tankPositions) {
+            this.minX = Math.min(this.minX, position.getX());
+            this.minY = Math.min(this.minY, position.getY());
+            this.minZ = Math.min(this.minZ, position.getZ());
+            this.maxX = Math.max(this.maxX, position.getX());
+            this.maxY = Math.max(this.maxY, position.getY());
+            this.maxZ = Math.max(this.maxZ, position.getZ());
+        }
+
         // validate multiblock
-        if (validateMultiblock(level)) {
+        List<BlockPos> invalidPositions = validateMultiblock(level);
+        if (invalidPositions.isEmpty()) {
             this.isComplete = true;
-
-            for (BlockPos position : this.tankPositions) {
-                this.minX = Math.min(this.minX, position.getX());
-                this.minY = Math.min(this.minY, position.getY());
-                this.minZ = Math.min(this.minZ, position.getZ());
-                this.maxX = Math.max(this.maxX, position.getX());
-                this.maxY = Math.max(this.maxY, position.getY());
-                this.maxZ = Math.max(this.maxZ, position.getZ());
-            }
-
             this.boundingBox = new AABB(this.minX, this.minY, this.minZ, this.maxX, this.maxY, this.maxZ);
             this.volume = (this.maxX - this.minX + 1) * (this.maxY - this.minY + 1) * (this.maxZ - this.minZ + 1);
 
-            spawnParticles(level);
+            spawnParticles(level, invalidPositions);
 
             if (this.onComplete != null) {
                 this.onComplete.run();
             }
         } else {
+            this.isComplete = false;
+            spawnParticles(level, invalidPositions);
             reset();
+
             if (this.onInvalid != null) {
                 this.onInvalid.run();
             }
         }
     }
 
-    private boolean validateMultiblock(@NotNull Level level) {
+    // TODO: If there are multiple controllers, it should be considered invalid
+    private List<BlockPos> validateMultiblock(@NotNull Level level) {
         // Check if there's at least one valve and one controller
         if (this.valvePositions.isEmpty() || this.tankPositions.isEmpty())
-            return false;
+            return List.of(this.controllerPos);
+
+        boolean outerFailed = false;
+        boolean innerFailed = false;
+        boolean foundController = false;
+        List<BlockPos> invalidPositions = new ArrayList<>();
 
         // Check if the blocks form a cuboid with an empty interior
         BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
@@ -134,19 +141,48 @@ public class MultiblockData implements INBTSerializable<CompoundTag> {
 
                     // Check the outer layer
                     if (x == this.minX || x == this.maxX || y == this.minY || y == this.maxY || z == this.minZ || z == this.maxZ) {
-                        if (!state.is(BlockInit.TANK_CASING.get()) && !state.is(BlockInit.TANK_GLASS.get()) && !state.is(BlockInit.TANK_CONTROLLER.get()) && !state.is(BlockInit.TANK_VALVE.get())) {
-                            DynamicFluidTanks.LOGGER.warn("Outer layer failed!");
-                            return false;
+                        if (!state.is(BlockInit.TANK_CASING.get()) && !state.is(BlockInit.TANK_GLASS.get()) && !state.is(BlockInit.TANK_VALVE.get())) {
+                            if(state.is(BlockInit.TANK_CONTROLLER.get())) {
+                                if(foundController) {
+                                    DynamicFluidTanks.LOGGER.warn("Found multiple controllers!");
+                                    invalidPositions.add(mutablePos.immutable());
+
+                                    if(!invalidPositions.contains(this.controllerPos)) {
+                                        invalidPositions.add(this.controllerPos);
+                                    }
+                                } else {
+                                    foundController = true;
+                                }
+
+                                continue;
+                            }
+
+                            if (!outerFailed) {
+                                DynamicFluidTanks.LOGGER.warn("Outer blocks failed!");
+                                outerFailed = true;
+                            }
+
+                            invalidPositions.add(mutablePos.immutable());
                         }
                     } else if (!level.isEmptyBlock(mutablePos)) { // Check the inner blocks
-                        DynamicFluidTanks.LOGGER.warn("Inner blocks failed!");
-                        return false;
+                        if (!innerFailed) {
+                            DynamicFluidTanks.LOGGER.warn("Inner blocks failed!");
+                            innerFailed = true;
+                        }
+
+                        invalidPositions.add(mutablePos.immutable());
                     }
                 }
             }
         }
 
-        return true;
+        if (invalidPositions.isEmpty()) {
+            DynamicFluidTanks.LOGGER.info("Multiblock validation successful!");
+        } else {
+
+        }
+
+        return invalidPositions;
     }
 
     private void reset() {
@@ -167,16 +203,25 @@ public class MultiblockData implements INBTSerializable<CompoundTag> {
         this.boundingBox = new AABB(0, 0, 0, 0, 0, 0);
     }
 
-    private void spawnParticles(@NotNull Level level) {
+    private void spawnParticles(@NotNull Level level, List<BlockPos> invalidPositions) {
         if (level.isClientSide)
             return;
 
         var serverLevel = (ServerLevel) level;
-        for (int x = minX; x < maxX; x++) {
-            for (int y = minY; y < maxY; y++) {
-                for (int z = minZ; z < maxZ; z++) {
-                    serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        // spawn particles along the edges of the multiblock
+        if (this.isComplete) {
+            for (int x = this.minX; x <= this.maxX; x++) {
+                for (int y = this.minY; y <= this.maxY; y++) {
+                    for (int z = this.minZ; z <= this.maxZ; z++) {
+                        if (x == this.minX || x == this.maxX || y == this.minY || y == this.maxY || z == this.minZ || z == this.maxZ) {
+                            serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, x + 0.5, y + 0.5, z + 0.5, 1, 0, 0, 0, 0);
+                        }
+                    }
                 }
+            }
+        } else {
+            for (BlockPos pos : invalidPositions) {
+                serverLevel.sendParticles(ParticleTypes.ANGRY_VILLAGER, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 1, 0, 0, 0, 0);
             }
         }
     }
