@@ -2,7 +2,6 @@ package dev.turtywurty.dynamicfluidtanks.client.renderer;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
 import dev.turtywurty.dynamicfluidtanks.blockentity.LongFluidTank;
 import dev.turtywurty.dynamicfluidtanks.blockentity.MultiblockData;
 import dev.turtywurty.dynamicfluidtanks.blockentity.TankControllerBlockEntity;
@@ -14,9 +13,12 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Vec3i;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.minecraftforge.common.util.LazyOptional;
@@ -59,10 +61,12 @@ public class FluidTankBERenderer implements BlockEntityRenderer<TankControllerBl
         float height = end.y() - start.y();
         float depth = end.z() - start.z();
 
-        float u0 = sprite.getU0() * width;
-        float v0 = sprite.getV0() * height;
-        float u1 = sprite.getU1() * width;
-        float v1 = sprite.getV1() * height;
+        float u0 = sprite.getU0();
+        float v0 = sprite.getV0();
+        float u1 = sprite.getU1();
+        float v1 = sprite.getV1();
+
+        // System.out.println("U0: " + u0 + " V0: " + v0 + " U1: " + u1 + " V1: " + v1 + " UV Ratio: " + sprite.uvShrinkRatio());
 
         poseStack.pushPose();
         poseStack.translate(-relativeStart.x(), -relativeStart.y(), -relativeStart.z());
@@ -129,6 +133,25 @@ public class FluidTankBERenderer implements BlockEntityRenderer<TankControllerBl
         float endZ = multiblockData.getMaxZ();
 
         drawCuboid(builder, pPoseStack, pos, new Vector3f(startX, startY, startZ), new Vector3f(endX, endY, endZ), sprite, 15728880, tintColor);
+
+//        FluidState fluidState = fluidStack.getFluid().defaultFluidState();
+//        AABB bounds = multiblockData.getBoundingBox();
+//        double minX = bounds.minX;
+//        double minY = bounds.minY;
+//        double minZ = bounds.minZ;
+//        double maxX = bounds.maxX;
+//        double maxY = bounds.maxY;
+//        double maxZ = bounds.maxZ;
+//
+//        Level level = pBlockEntity.getLevel();
+//        RandomSource random = level.random;
+//        for (int x = (int) minX; x < maxX; x++) {
+//            for (int y = (int) minY; y < maxY; y++) {
+//                for (int z = (int) minZ; z < maxZ; z++) {
+//                    fluidState.animateTick(level, new BlockPos(x, y, z), random);
+//                }
+//            }
+//        }
     }
 
     @Override

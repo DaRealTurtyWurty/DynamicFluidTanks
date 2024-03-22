@@ -11,6 +11,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -23,6 +24,9 @@ import java.util.*;
 
 @Getter
 public class MultiblockData implements INBTSerializable<CompoundTag> {
+    public static final Map<ResourceKey<Level>, List<MultiblockData>> INSTANCES = new HashMap<>();
+
+    private final ResourceKey<Level> dimension;
     private final BlockPos controllerPos;
     private final Set<BlockPos> tankPositions = new HashSet<>();
     private final Set<BlockPos> valvePositions = new HashSet<>();
@@ -34,12 +38,16 @@ public class MultiblockData implements INBTSerializable<CompoundTag> {
 
     private boolean isComplete = false;
     private int volume = 0;
+    private boolean needsRevalidation;
 
     @Setter
     private Runnable onComplete, onInvalid;
 
-    public MultiblockData(BlockPos controllerPos) {
+    public MultiblockData(BlockPos controllerPos, Level level) {
         this.controllerPos = controllerPos;
+
+        this.dimension = level.dimension();
+        INSTANCES.computeIfAbsent(this.dimension, k -> new ArrayList<>()).add(this);
     }
 
     public void construct(@NotNull Level level) {
@@ -335,5 +343,21 @@ public class MultiblockData implements INBTSerializable<CompoundTag> {
         if (nbt.contains("Volume", Tag.TAG_INT)) {
             this.volume = nbt.getInt("Volume");
         }
+    }
+
+    public void invalidate() {
+        INSTANCES.computeIfAbsent(this.dimension, k -> new ArrayList<>()).remove(this);
+    }
+
+    public boolean isWithinMultiblock(BlockPos pos) {
+        return this.boundingBox.inflate(1).contains(pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    public void markForValidation() {
+        this.needsRevalidation = true;
+    }
+
+    public void finishRevalidation() {
+        this.needsRevalidation = false;
     }
 }

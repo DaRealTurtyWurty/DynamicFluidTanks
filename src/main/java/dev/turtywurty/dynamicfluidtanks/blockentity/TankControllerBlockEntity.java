@@ -12,6 +12,7 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -19,6 +20,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
@@ -35,7 +38,7 @@ public class TankControllerBlockEntity extends BlockEntity implements TickableBl
             Component.translatable("container." + DynamicFluidTanks.MODID + ".tank_controller");
 
     @Getter
-    private final MultiblockData multiblockData = new MultiblockData(this.worldPosition);
+    private MultiblockData multiblockData;
 
     private final LongFluidTank tank = new LongFluidTank() {
         @Override
@@ -67,11 +70,16 @@ public class TankControllerBlockEntity extends BlockEntity implements TickableBl
 
     private int ticks;
 
-    public TankControllerBlockEntity(BlockPos pPos, BlockState pBlockState) {
-        super(BlockEntityTypeInit.TANK_CONTROLLER.get(), pPos, pBlockState);
-
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        this.multiblockData = new MultiblockData(this.worldPosition, this.level);
         this.multiblockData.setOnComplete(this::onMultiblockComplete);
         this.multiblockData.setOnInvalid(this::onMultiblockInvalid);
+    }
+
+    public TankControllerBlockEntity(BlockPos pPos, BlockState pBlockState) {
+        super(BlockEntityTypeInit.TANK_CONTROLLER.get(), pPos, pBlockState);
     }
 
     @Override
@@ -79,7 +87,11 @@ public class TankControllerBlockEntity extends BlockEntity implements TickableBl
         if (this.level == null)
             return;
 
-        if ((!this.multiblockData.isComplete() && this.ticks % 20 == 0) || this.ticks % 200 == 0) {
+        if ((!this.multiblockData.isComplete() && this.ticks % 20 == 0) || this.ticks % 200 == 0 || this.multiblockData.isNeedsRevalidation()) {
+            if(this.multiblockData.isNeedsRevalidation()) {
+                this.multiblockData.finishRevalidation();
+            }
+
             long start = System.nanoTime();
             this.multiblockData.construct(this.level);
             long end = System.nanoTime();
@@ -238,5 +250,11 @@ public class TankControllerBlockEntity extends BlockEntity implements TickableBl
     @Override
     public AABB getRenderBoundingBox() {
         return this.multiblockData.getBoundingBox();
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        this.multiblockData.invalidate();
     }
 }
